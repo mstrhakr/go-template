@@ -1,3 +1,5 @@
+.SHELLFLAGS := -eu -o pipefail -c
+SHELL := bash
 .DEFAULT_GOAL := help
 .PHONY: help run build setup test test-go test-unit test-js test-e2e test-smoke vet fmt check check-go check-assets check-contracts docs docs-serve docs-contracts check-workflows check-security check-container
 
