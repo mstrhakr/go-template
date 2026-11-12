@@ -42,7 +42,13 @@ func Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = result.WriteTo(w)
 	})
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(assets)))
+	static := http.StripPrefix("/static/", http.FileServerFS(assets))
+	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".js") {
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		}
+		static.ServeHTTP(w, r)
+	}))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("{\"status\":\"ok\"}\n"))

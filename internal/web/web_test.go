@@ -1,6 +1,7 @@
 package web
 
 import (
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,5 +76,18 @@ func TestNameLimit(t *testing.T) {
 	Handler().ServeHTTP(response, httptest.NewRequest("GET", "/?name="+strings.Repeat("a", 101), nil))
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("oversized input = %d", response.Code)
+	}
+}
+
+func TestScriptContentTypeIgnoresHostRegistry(t *testing.T) {
+	original := mime.TypeByExtension(".js")
+	t.Cleanup(func() { _ = mime.AddExtensionType(".js", original) })
+	if err := mime.AddExtensionType(".js", "application/javascript"); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	Handler().ServeHTTP(response, httptest.NewRequest("GET", "/static/app.js", nil))
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "text/javascript; charset=utf-8" {
+		t.Fatalf("host MIME leaked into response: %d %v", response.Code, response.Header())
 	}
 }
