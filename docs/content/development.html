@@ -3,11 +3,31 @@ title = 'Development'
 weight = 30
 +++
 <h2>Daily commands</h2>
-<pre><code>make fmt        # format Go code
-make check      # vet, race-enabled tests, format check, build
-make build      # produce bin/server
-make docs       # build docs/public with Hugo
-make docs-serve # preview on http://localhost:1313/</code></pre>
+<p>Install Go 1.27.4, Node 24, GNU Make, and a C compiler (Go race tests use CGO).
+On Windows, use an appropriate Make/GCC toolchain or WSL for the local full suite;
+native Windows behavior is separately checked by CI. Hugo and Docker are optional
+until working on their surfaces.</p>
+<pre><code>make setup       # once: locked npm tools and Playwright browsers
+make test        # all Go, JS/unit/API, and desktop/mobile browser tests
+make check       # above plus vet, formatting, build, assets, contracts
+make fmt         # format Go code
+make test-go      # focused race-enabled Go checks
+make test-js      # Node unit tests and browserless HTTP tests
+make test-e2e     # Chromium, Firefox, WebKit, mobile Chromium
+make check-workflows # workflow lint and token/pin policy
+make check-security  # npm audit and Go vulnerability analysis
+make check-container # Docker build and vulnerability scan
+make docs         # default docs build
+make docs-contracts # opt-in preview including contracts</code></pre>
+<p>Linux browser system dependencies can be installed with
+<code>npm exec -- playwright install --with-deps chromium firefox webkit</code>.
+Run privileged OS installation yourself when your environment requires it.
+VS Code's default Test task runs <code>make test</code>. No separate test.sh is
+needed: a wrapper would only delegate to Make, never maintain a second test list.</p>
+<p>Playwright starts/stops a dedicated Go server at 127.0.0.1:18080 and refuses
+to reuse an unrelated existing listener. Two workers bound memory use; tests
+do not retry failures. Reports and failure traces are local ignored artifacts.
+Node unit tests use the built-in runner; HTTP and browser tests use Playwright.</p>
 <p>Go tests use the standard testing and httptest packages. Add table-driven
 configuration tests and handler tests near the implementation. For an individual
 package, run <code>go test -race ./internal/web</code>.</p>
@@ -15,7 +35,7 @@ package, run <code>go test -race ./internal/web</code>.</p>
 <p>The service uses only the Go standard library, so there is no <code>go.sum</code>
 yet. Use <code>go get module@version</code> and <code>go mod tidy</code> when adding
 dependencies, and commit both module files. Docker copies both automatically.</p>
-<p>Dependabot checks Go modules, SHA-pinned GitHub Actions, and Docker images weekly.
+<p>Dependabot checks Go modules, npm, SHA-pinned GitHub Actions, and Docker images weekly.
 Review updates rather than automatically merging them. Go starts at 1.27.4 and
 Hugo at 0.169.0, the latest stable releases checked for this first pass.</p>
 <p>When updating Go, align <code>go.mod</code> and the Dockerfile tag/digest.
@@ -23,13 +43,36 @@ When updating Hugo, update the version and official release SHA-256 in
 <code>.github/actions/setup-hugo/action.yml</code>; Hugo's binary is not managed
 by Dependabot. Install that same Hugo version locally from the official release,
 checking its checksum before running it.</p>
+<p>htmx is pinned in package-lock.json and committed under internal/web/static
+with its license and SHA-256 metadata. After an intentional package update, run
+<code>npm run assets</code>, review the generated changes, then run
+<code>make check-assets</code>. Builds do not download browser code from a CDN.
+Node is not required to run an already-built executable or container.</p>
+<p>GoReleaser, govulncheck, actionlint, Buildx and the scanner image have explicit
+pins too. Dependabot does not update every executable version/checksum embedded
+in scripts or composite Actions; review those manually. Direct Action pins are
+not a blanket guarantee about all upstream downloads or transitive dependencies.</p>
 <h2>Documentation</h2>
 <p>Content lives in <code>docs/content/</code>. Existing pages use HTML with TOML
 front matter; Hugo also supports Markdown pages. Add a title and weight to include
 a page in navigation. Layouts and CSS are local, avoiding theme/submodule drift.
 CI builds the site with a project subpath to check GitHub Pages compatibility.</p>
 <h2>Continuous integration</h2>
-<p>Pushes and pull requests run Go checks, build and smoke-test the container,
-and build the documentation without publishing. CI has read-only repository
-permissions and does not receive deployment credentials. The setup-go download
-cache is disabled while there is no dependency checksum file.</p>
+<p>Protect main; use short-lived branches and squash PRs with Conventional Commit
+titles. No permanent dev branch, mandatory second reviewer, or local commit hook.
+The optional VS Code extension assists authoring; CI checks the PR title and the
+squash defaults use it. Maintainers must preserve that checked message on merge.</p>
+<p>CI detects changed surfaces and runs only relevant read-only jobs. Unknown
+paths/shared tooling run broadly; failed detection or cancelled/failed checks
+fail the final CI gate. Contract-only edits skip app jobs unless mixed with code.
+When contract publication is enabled, those edits also validate the docs build.</p>
+<p>Native Go CI covers Linux x64, Windows x64, macOS x64 and macOS ARM64.
+Cross-compiling releases is not native execution evidence. Browser tests on
+Linux exercise Chromium, Firefox and WebKit; WebKit is not a native Safari run,
+and mobile emulation is not a physical-device test.</p>
+<p>PR jobs never receive publishing secrets or write scopes. Privileged events
+do not execute PR source; no public-PR self-hosted runners or cross-trust caches.
+Dependency scans run on relevant changes and a schedule. Protected-main CodeQL
+has security-report write scope, not PR access or package publication rights.</p>
+<p>See the contract guide before behavioral changes. Structure checks do not
+approve a requirement; report actual executed checks and remaining gaps.</p>

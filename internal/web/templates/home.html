@@ -1,0 +1,11 @@
+{{define "home"}}
+<form action="/" method="get" hx-get="/" hx-target="#greeting" hx-swap="innerHTML" hx-disabled-elt="find button">
+  <label for="name">Name</label>
+  <div class="fields">
+    <input id="name" name="name" value="{{.Name}}" maxlength="100" autocomplete="given-name">
+    <button type="submit">Greet</button>
+  </div>
+</form>
+<section id="greeting" aria-label="Greeting" role="status" aria-live="polite">{{template "greeting" .}}</section>
+<p id="request-error" role="alert" hidden></p>
+{{end}}

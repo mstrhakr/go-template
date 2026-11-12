@@ -1,0 +1,15 @@
+name: Set up GoReleaser
+description: Install the pinned checksum-verified open-source GoReleaser binary on Linux x64
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        directory="$(mktemp -d "$RUNNER_TEMP/goreleaser.XXXXXX")"
+        curl --fail --silent --show-error --location --retry 3 \
+          https://github.com/goreleaser/goreleaser/releases/download/v2.20.2/goreleaser_Linux_x86_64.tar.gz \
+          --output "$directory/goreleaser.tar.gz"
+        echo "f3d24969a7389a46613875711d15a96d8f6ef1553d84c6ace09d69ac1e7d44c0  $directory/goreleaser.tar.gz" | sha256sum --check
+        tar -xzf "$directory/goreleaser.tar.gz" -C "$directory" goreleaser
+        echo "$directory" >> "$GITHUB_PATH"

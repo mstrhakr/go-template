@@ -1,0 +1,27 @@
+{
+  "name": "go-template-tests",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "assets": "node scripts/assets.mjs",
+    "assets:check": "node scripts/assets.mjs --check",
+    "test": "playwright test",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:js": "playwright test --project=js",
+    "test:e2e": "playwright test --project=chromium --project=firefox --project=webkit --project=mobile-chromium",
+    "test:setup": "playwright install chromium firefox webkit",
+    "test:smoke": "playwright test --project=chromium",
+    "contracts:check": "node scripts/contracts.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "semver": "7.8.6",
+    "yaml": "2.9.1"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.11"
+  }
+}

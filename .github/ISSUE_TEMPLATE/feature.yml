@@ -1,0 +1,13 @@
+name: Feature request
+description: Propose an outcome or improvement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and intended outcome
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints, alternatives, and affected contracts

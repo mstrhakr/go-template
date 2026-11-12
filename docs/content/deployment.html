@@ -18,16 +18,95 @@ TLS reverse proxy in front of it. If the proxy is another container, connect it
 to the same Docker network and use <code>app:8080</code> instead of loopback.
 Do not expose future administrative routes without authentication.</p>
 <h2>Container registry (off by default)</h2>
-<ol>
-  <li>Set the repository Actions variable <code>PUBLISH_CONTAINER</code> to <code>true</code>.</li>
-  <li>Run the “Publish container (opt-in)” workflow manually on the default branch.</li>
-  <li>After tests pass, it publishes amd64 and arm64 images to
-    <code>ghcr.io/owner/repository:sha-FULL_COMMIT_SHA</code>, with lowercase names.</li>
-</ol>
-<p>It uses the built-in GitHub token; no personal access token is required.
-New GHCR packages are private by default, but existing packages retain their
-visibility. Verify package access before enabling this workflow. There is no
-automatic publication on pushes or tags.</p>
+<p>After explicit setup, relevant passing protected-main CI triggers dev images.
+Only successful main push runs from this repository's CI are accepted, never
+PR runs or arbitrary artifacts. A read-only job builds/scans/smoke-tests; a
+separate job loads and pushes the image without executing it; a separate OIDC
+job attests its digest. Initial images are Linux x64. No Docker socket is
+exposed to the scanner; its image is digest-pinned.</p>
+<p>Registry names are lowercase. Dev uses <code>dev</code> and
+<code>sha-FULL_COMMIT_SHA</code>; beta/RC use their exact version tags plus
+<code>beta</code>/<code>rc</code>; only normal moves <code>latest</code>.
+Do not deliberately overwrite version/SHA tags. Roll back by an exact version
+or digest only when config/data remain compatible. GHCR package visibility is
+separate from repository visibility; check package access explicitly.</p>
+<h2>GitHub setup for each repository</h2>
+<p>Template-created repos do not inherit live settings. Authenticate GitHub CLI
+outside chat, review this public-repo setup, then explicitly apply it:</p>
+<pre><code>node scripts/setup-github.mjs --repo OWNER/PROJECT
+node scripts/setup-github.mjs --repo OWNER/PROJECT --apply
+# Only when publication is authorized:
+node scripts/setup-github.mjs --repo OWNER/PROJECT --apply --enable-publishing</code></pre>
+<p>The script never changes visibility or buys plan features. It requires admin
+access, a public repo and main as the default branch. It enables Issues, private
+security reporting, secret scanning/push protection, Dependabot alerts/fixes,
+squash-only PRs, the required <code>CI gate</code>, immutable version tags,
+read-only Actions defaults and SHA-pinned allowlisted Actions. It disables Wiki,
+Discussions, dependency auto-merge and routine ruleset bypass.</p>
+<p>The release environment requires the applying maintainer's approval and
+protected-branch deployment. Self-review remains allowed for a solo maintainer;
+this is an intentional approval pause, not two-person security. GitHub combines
+bot-PR creation and approval in one Actions settings switch; the script enables
+it so Release Please can create PRs, not to authorize automatic approvals.</p>
+<p>Without <code>--enable-publishing</code>, release/container variables are false.
+With it, <code>RELEASES_ENABLED</code>, <code>PUBLISH_CONTAINER</code>, and the
+verified-setup acknowledgement <code>RELEASE_APPROVAL_CONFIGURED</code> are true.
+Keep the environment protected; that acknowledgement is not itself enforcement.
+Docs publication remains separately off. Apply local changes through a feature
+branch/PR; do not bypass the new main rule to bootstrap them.</p>
+<h2>Versions and release channels</h2>
+<p>Initial normal version: v0.1.0. Before v1, feat/fix increment patch;
+breaking changes increment minor. Docs/test/chore-only work does not ordinarily
+release the app. Entering v1 requires an explicit policy/config change.</p>
+<p>Release Please opens/updates version/changelog PRs. Its built-in token does
+not automatically trigger PR workflows, so a separate scoped dispatch job starts
+CI on the generated branch. Merging the release PR creates a draft release;
+full validation, packaging, checksums, attestations and release-environment
+approval precede publication. A failed stage leaves a visible failed run/draft,
+not an implied successful release. Do not manually publish that draft to skip gates.</p>
+<p>For beta/RC, run <strong>Releases (opt-in)</strong> manually on main, selecting
+channel, exact tag (for example v0.2.0-beta.1 or v0.2.0-rc.1), and full 40-character
+main-history commit SHA. Branch names are rejected. RC means intended final scope;
+new features return to beta. These prereleases are optional for small fixes.
+Final release source/build changes require validation, not blind promotion of a
+moving candidate alias. Release numbering is independent from Go toolchain versions.</p>
+<table>
+  <thead><tr><th>Stage</th><th>Validation</th></tr></thead>
+  <tbody>
+    <tr><td>PR</td><td>Relevant unit/API/browser/security/docs/contracts checks</td></tr>
+    <tr><td>Dev</td><td>Passing main CI, exact-source image build, scan and smoke test</td></tr>
+    <tr><td>Beta/RC</td><td>Full current readiness suite and packaging; RC intended final behavior</td></tr>
+    <tr><td>Normal</td><td>Same full readiness, final artifact checks, explicit approval and publication</td></tr>
+  </tbody>
+</table>
+<p>The starter suite is small, so beta/RC currently share the full readiness
+suite. Add slower integration/upgrade/rollback cases as those features exist;
+never invent empty stage gates. Security boundaries apply at every stage.
+Native CI covers declared OS/architecture targets; local cross-builds do not
+establish native Windows/macOS support. No desktop framework is included.</p>
+<h2>Verify downloads and images</h2>
+<p>GoReleaser produces Linux/Windows x64 and macOS x64/ARM64 downloads, checksums
+and embedded version/revision metadata. Use <code>server -version</code> locally.
+Verify checksums and provenance with the repository/workflow you expect:</p>
+<pre><code>sha256sum --check checksums.txt
+gh attestation verify FILE --repo OWNER/PROJECT --signer-workflow OWNER/PROJECT/.github/workflows/publish.yml
+gh attestation verify oci://ghcr.io/owner/project@sha256:DIGEST --repo OWNER/PROJECT --signer-workflow OWNER/PROJECT/.github/workflows/image.yml</code></pre>
+<p>For a manually selected source revision, the triggering workflow revision may
+differ from packaged source. Verify the additional signed source-revision receipt
+and inspect its repository/revision/tag/run against your expectations:</p>
+<pre><code>gh attestation verify FILE --repo OWNER/PROJECT --predicate-type https://github.com/mstrhakr/go-template/source-revision/v1 --format json</code></pre>
+<p>The predicate URI identifies this schema, not a required upstream signer.
+Verify your own repository/workflow identity. Attestations are origin evidence,
+not proof that upstream code or an authorized workflow is harmless. Publication
+and consumer-side verification must be exercised before claiming end-to-end
+verification; local snapshot builds alone do not provide that evidence.</p>
+<h2>Support, retention and recovery</h2>
+<p>Initially support the latest normal release; dev/beta/RC are test channels.
+Retain normal and prerelease versions. Target about 30 days of dev registry
+history with cautious manual cleanup; do not delete referenced release digests.
+CI reports/build handoff artifacts expire after seven days. No deletion bot is
+given broad package write access. For incidents, stop publishing, revoke affected
+access, review trusted source/workflows, rebuild, and restore deliberately.</p>
 <h2>GitHub Pages (off by default)</h2>
 <p><strong>A private repository does not guarantee a private Pages site.</strong>
 Pages availability and private-site access controls depend on your GitHub plan.
@@ -45,3 +124,5 @@ domains do not require hardcoded repository names. Preview locally with
 <code>make docs-serve</code> while publishing remains disabled. Changing either
 opt-in variable back to false prevents future runs, but does not delete already
 published sites, packages, or artifacts.</p>
+<p>Contracts stay excluded unless <code>PUBLISH_CONTRACTS=true</code>. Preview
+them locally with <code>make docs-contracts</code> before enabling that variable.</p>

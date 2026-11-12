@@ -34,7 +34,11 @@ jobs:
       - name: Build documentation
         env:
           BASE_URL: ${{ steps.pages.outputs.base_url }}
-        run: hugo --source docs --minify --panicOnWarning --baseURL "$BASE_URL/"
+          INCLUDE_CONTRACTS: ${{ vars.PUBLISH_CONTRACTS }}
+        run: |
+          config=hugo.toml
+          if [[ "$INCLUDE_CONTRACTS" = true ]]; then config=hugo.toml,hugo.contracts.toml; fi
+          hugo --source docs --config "$config" --minify --panicOnWarning --baseURL "$BASE_URL/"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/public

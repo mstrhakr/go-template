@@ -5,7 +5,9 @@ weight = 20
 <h2>Small packages with clear responsibilities</h2>
 <pre><code>cmd/server/       executable, signals, server lifecycle, health probe
 internal/config/  environment parsing and validation
-internal/web/     HTTP routes and embedded landing page
+internal/web/     HTTP routes, escaped HTML layouts/partials, local assets
+tests/            unit/API/browser checks
+docs/contracts/   canonical behavioral contracts, unpublished by default
 docs/content/     documentation source
 docs/layouts/     local Hugo templates
 docs/static/      documentation styles
@@ -29,6 +31,19 @@ is preselected. There are no protected routes yet. Before adding sensitive data
 or administrative operations, add authentication, authorization, request limits,
 and appropriate tests. Review the starter Content Security Policy before adding
 scripts, styles, or remote assets.</p>
+<h2>Server-driven UI</h2>
+<p>Go owns business rules and renders embedded html/template layouts and partials.
+htmx is a pinned local script: it requests server-rendered fragments and swaps
+them into the page. Small JS modules handle browser-only behavior, such as
+request error feedback. No client framework, bundler, or Node server is required
+at runtime. The example form also works as ordinary navigation without JS.</p>
+<p>Templates parse when the handler is constructed; invalid templates fail startup.
+Rendering is buffered before headers are committed. Untrusted values stay escaped.
+Full-page and fragment responses vary by htmx headers to avoid cache confusion.
+htmx eval, script injection, and external requests are disabled. The CSP allows
+only local scripts/styles/connections. Cross-origin protection rejects unsafe
+cross-origin requests; it is not authentication or authorization. The current
+example uses read-only GET and introduces no stored mutations.</p>
 <h2>Reference projects</h2>
 <p>The structure follows patterns found in
 <a href="https://github.com/mstrhakr/network-list-sync">network-list-sync</a>,

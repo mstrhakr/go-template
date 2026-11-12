@@ -1,0 +1,22 @@
+{{define "page"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"includeIndicatorStyles":false}'>
+  <title>Go Template</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Go Template</h1>
+      <p>Your new project starts here.</p>
+    </header>
+    {{template "home" .}}
+    <footer><a href="/healthz">Service health</a></footer>
+  </main>
+</body>
+</html>{{end}}

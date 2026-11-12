@@ -1,0 +1,171 @@
+name: Build and publish isolated image
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      alias:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: image-publication-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate source and tag boundary
+        env:
+          SHA: ${{ inputs.sha }}
+          TAG: ${{ inputs.tag }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          [[ "$SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$TAG" =~ ^(v0\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?|sha-[a-f0-9]{40})$ ]]
+          [[ "$CHANNEL" =~ ^(normal|beta|rc|dev)$ ]]
+          git merge-base --is-ancestor "$SHA" origin/main
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+        with:
+          version: v0.39.0
+      - id: metadata
+        run: echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          tags: release-candidate:build
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ inputs.sha }}
+            org.opencontainers.image.version=${{ inputs.tag }}
+          build-args: |
+            VERSION=${{ inputs.tag }}
+            COMMIT=${{ inputs.sha }}
+            BUILD_DATE=${{ steps.metadata.outputs.date }}
+      - run: |
+          docker run -d --name smoke --read-only --cap-drop ALL --security-opt no-new-privileges release-candidate:build
+          trap 'docker logs smoke; docker rm -f smoke' EXIT
+          node scripts/container-smoke.mjs
+          node scripts/scan-image.mjs release-candidate:build
+          docker save -o "$RUNNER_TEMP/image.tar" release-candidate:build
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: image-${{ inputs.tag }}
+          path: ${{ runner.temp }}/image.tar
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.channel == 'normal' && 'release' || inputs.channel == 'dev' && 'development' || 'prerelease' }}
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: image-${{ inputs.tag }}
+          path: image
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          ALIAS: ${{ inputs.alias }}
+          SHA: ${{ inputs.sha }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPOSITORY,,}"
+          [[ "$ALIAS" =~ ^(latest|beta|rc|dev)$ ]]
+          docker load -i image/image.tar
+          existing=false
+          if docker manifest inspect --verbose "$image:$TAG" > manifest.json 2> manifest-error.txt; then
+            expected="$(docker image inspect release-candidate:build --format '{{.Id}}')"
+            test "$(jq -r '.SchemaV2Manifest.config.digest' manifest.json)" = "$expected"
+            digest="$(jq -r '.Descriptor.digest' manifest.json)"
+            existing=true
+          elif ! grep -Eq 'manifest unknown|no such manifest|name unknown|not found' manifest-error.txt; then
+            owner="${REPOSITORY%%/*}"
+            package="${REPOSITORY##*/}"
+            owner_type="$(gh api "repos/$REPOSITORY" --jq .owner.type)"
+            endpoint=users
+            if [[ "$owner_type" = Organization ]]; then endpoint=orgs; fi
+            status="$(gh api --include "$endpoint/$owner/packages/container/${package,,}" 2>/dev/null | head -n 1 || true)"
+            if [[ ! "$status" =~ 404 ]]; then cat manifest-error.txt; exit 1; fi
+          fi
+          if [[ "$existing" = false ]]; then
+            docker tag release-candidate:build "$image:$TAG"
+            docker push "$image:$TAG"
+            digest="$(docker image inspect "$image:$TAG" --format '{{index .RepoDigests 0}}')"
+            digest="${digest##*@}"
+          fi
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          current="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"
+          if [[ "$CHANNEL" != dev || "$current" = "$SHA" ]]; then
+            docker tag release-candidate:build "$image:$ALIAS"
+            docker push "$image:$ALIAS"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf 'Image: `%s@%s`\n' "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+  attest:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-name: ${{ needs.publish.outputs.image }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-name: ${{ needs.publish.outputs.image }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          push-to-registry: true
+          predicate-type: https://github.com/mstrhakr/go-template/source-revision/v1
+          predicate: '{"repository":"${{ github.repository }}","revision":"${{ inputs.sha }}","tag":"${{ inputs.tag }}","run":"${{ github.run_id }}"}'

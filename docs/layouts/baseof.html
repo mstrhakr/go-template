@@ -10,9 +10,10 @@
   <header>
     <a href="{{ site.Home.RelPermalink }}">{{ site.Title }}</a>
     <nav aria-label="Documentation">
-      {{ range site.RegularPages.ByWeight }}
+      {{ range (where site.RegularPages "Section" "ne" "contracts").ByWeight }}
       <a href="{{ .RelPermalink }}"{{ if eq $.RelPermalink .RelPermalink }} aria-current="page"{{ end }}>{{ .Title }}</a>
       {{ end }}
+      {{ with site.GetPage "/contracts" }}<a href="{{ .RelPermalink }}">Contracts</a>{{ end }}
     </nav>
   </header>
   <main>

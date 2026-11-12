@@ -1,0 +1,155 @@
+name: Publish validated release
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: release-publication-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/validate.yml
+    with:
+      ref: ${{ inputs.sha }}
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm run assets:check
+      - name: Validate release input and prepare local packaging tag
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_SHA: ${{ inputs.sha }}
+        run: |
+          node scripts/release.mjs
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          if git rev-parse --verify "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$RELEASE_TAG")" = "$RELEASE_SHA"
+          else
+            git tag "$RELEASE_TAG" "$RELEASE_SHA"
+          fi
+      - uses: ./.github/actions/setup-goreleaser
+      - run: goreleaser release --clean --skip=publish
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: release-binaries
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          retention-days: 7
+
+  attest:
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: release-binaries
+          path: dist
+      - run: cd dist && sha256sum --strict --check checksums.txt
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-checksums: dist/checksums.txt
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-checksums: dist/checksums.txt
+          predicate-type: https://github.com/mstrhakr/go-template/source-revision/v1
+          predicate: '{"repository":"${{ github.repository }}","revision":"${{ inputs.sha }}","tag":"${{ inputs.tag }}","run":"${{ github.run_id }}"}'
+
+  binaries:
+    needs: attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.channel == 'normal' && 'release' || 'prerelease' }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: release-binaries
+          path: dist
+      - run: cd dist && sha256sum --strict --check checksums.txt
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --target "$SHA" --title "$TAG" --draft --notes "Validated candidate at $SHA. See checksums and attestations for provenance."
+          fi
+          test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true
+          gh release upload "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt --clobber
+
+  image:
+    needs: validate
+    if: vars.PUBLISH_CONTAINER == 'true'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/image.yml
+    with:
+      sha: ${{ inputs.sha }}
+      tag: ${{ inputs.tag }}
+      alias: ${{ inputs.channel == 'normal' && 'latest' || inputs.channel }}
+      channel: ${{ inputs.channel }}
+
+  finalize:
+    if: always() && needs.binaries.result == 'success' && (needs.image.result == 'success' || needs.image.result == 'skipped')
+    needs: [binaries, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          prerelease=true
+          latest=false
+          if [[ "$CHANNEL" = normal ]]; then prerelease=false; latest=true; fi
+          gh release edit "$TAG" --draft=false --prerelease="$prerelease" --latest="$latest"

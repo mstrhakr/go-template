@@ -36,3 +36,7 @@ go.work.sum
 /docs/public/
 /docs/resources/
 /docs/.hugo_build.lock
+/node_modules/
+/playwright-report/
+/test-results/
+/dist/
