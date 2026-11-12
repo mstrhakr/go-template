@@ -1,0 +1,18 @@
+name: Set up Hugo
+description: Install the checksum-verified standard Hugo binary on Linux amd64
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        HUGO_VERSION: "0.169.0"
+        HUGO_SHA256: "2d2f0bfe357d8cb4cec02f6bb28a3bff34978c8dda44b618029c5eb9d66765a7"
+      run: |
+        set -euo pipefail
+        directory="$(mktemp -d "$RUNNER_TEMP/hugo.XXXXXX")"
+        curl --fail --silent --show-error --location --retry 3 \
+          "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_linux-amd64.tar.gz" \
+          --output "$directory/hugo.tar.gz"
+        echo "$HUGO_SHA256  $directory/hugo.tar.gz" | sha256sum --check
+        tar -xzf "$directory/hugo.tar.gz" -C "$directory" hugo
+        echo "$directory" >> "$GITHUB_PATH"

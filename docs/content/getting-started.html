@@ -1,0 +1,36 @@
++++
+title = 'Getting started'
+weight = 10
++++
+<h2>Run locally</h2>
+<p>Install the Go version specified in <code>go.mod</code> (currently 1.27.4).
+GNU Make is optional; the commands in the Makefile can also be run directly.</p>
+<pre><code>make run
+# In another terminal:
+curl http://localhost:8080/healthz</code></pre>
+<p>Visit <code>http://localhost:8080/</code> for the embedded starter page.
+Stop the server with Ctrl+C.</p>
+<h2>Configuration</h2>
+<p>The native binary reads exported environment variables, not dotenv files.</p>
+<table>
+  <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>APP_ADDR</td><td>:8080</td><td>Listen host and numeric port (1–65535)</td></tr>
+    <tr><td>APP_LOG_LEVEL</td><td>info</td><td>debug, info, warn, or error</td></tr>
+    <tr><td>APP_PORT</td><td>8080</td><td>Compose host port only</td></tr>
+  </tbody>
+</table>
+<pre><code>APP_ADDR=127.0.0.1:9000 APP_LOG_LEVEL=debug go run ./cmd/server</code></pre>
+<p>The native default binds all interfaces for container compatibility. Use a
+loopback address for local-only development. Compose exposes only loopback by default.</p>
+<h2>Make it yours</h2>
+<ol>
+  <li>Create a repository from this template and choose its visibility deliberately.</li>
+  <li>Change the module path with <code>go mod edit -module=github.com/OWNER/PROJECT</code>,
+    then update imports in <code>cmd/server/</code>.</li>
+  <li>Update the README, page titles, embedded landing page, and documentation title.</li>
+  <li>Review the license and retain notices for any reused code.</li>
+  <li>Run <code>make check</code>, <code>make docs</code>, and <code>docker compose up --build</code>.</li>
+  <li>Review repository Actions, branch protection, Dependabot, package visibility, and Pages settings.
+    Publishing remains disabled until explicitly enabled.</li>
+</ol>

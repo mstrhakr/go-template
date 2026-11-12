@@ -1,0 +1,35 @@
++++
+title = 'Development'
+weight = 30
++++
+<h2>Daily commands</h2>
+<pre><code>make fmt        # format Go code
+make check      # vet, race-enabled tests, format check, build
+make build      # produce bin/server
+make docs       # build docs/public with Hugo
+make docs-serve # preview on http://localhost:1313/</code></pre>
+<p>Go tests use the standard testing and httptest packages. Add table-driven
+configuration tests and handler tests near the implementation. For an individual
+package, run <code>go test -race ./internal/web</code>.</p>
+<h2>Dependencies and updates</h2>
+<p>The service uses only the Go standard library, so there is no <code>go.sum</code>
+yet. Use <code>go get module@version</code> and <code>go mod tidy</code> when adding
+dependencies, and commit both module files. Docker copies both automatically.</p>
+<p>Dependabot checks Go modules, SHA-pinned GitHub Actions, and Docker images weekly.
+Review updates rather than automatically merging them. Go starts at 1.27.4 and
+Hugo at 0.169.0, the latest stable releases checked for this first pass.</p>
+<p>When updating Go, align <code>go.mod</code> and the Dockerfile tag/digest.
+When updating Hugo, update the version and official release SHA-256 in
+<code>.github/actions/setup-hugo/action.yml</code>; Hugo's binary is not managed
+by Dependabot. Install that same Hugo version locally from the official release,
+checking its checksum before running it.</p>
+<h2>Documentation</h2>
+<p>Content lives in <code>docs/content/</code>. Existing pages use HTML with TOML
+front matter; Hugo also supports Markdown pages. Add a title and weight to include
+a page in navigation. Layouts and CSS are local, avoiding theme/submodule drift.
+CI builds the site with a project subpath to check GitHub Pages compatibility.</p>
+<h2>Continuous integration</h2>
+<p>Pushes and pull requests run Go checks, build and smoke-test the container,
+and build the documentation without publishing. CI has read-only repository
+permissions and does not receive deployment credentials. The setup-go download
+cache is disabled while there is no dependency checksum file.</p>
