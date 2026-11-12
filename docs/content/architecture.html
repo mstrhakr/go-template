@@ -1,0 +1,38 @@
++++
+title = 'Architecture'
+weight = 20
++++
+<h2>Small packages with clear responsibilities</h2>
+<pre><code>cmd/server/       executable, signals, server lifecycle, health probe
+internal/config/  environment parsing and validation
+internal/web/     HTTP routes and embedded landing page
+docs/content/     documentation source
+docs/layouts/     local Hugo templates
+docs/static/      documentation styles
+.github/          CI, opt-in publishing, dependency updates</code></pre>
+<p>Keep wiring in <code>cmd/server</code> and behavior in focused internal packages.
+Add domain packages when actual requirements arrive; do not start with generic
+repository, service, or dependency-injection abstractions.</p>
+<h2>Runtime contract</h2>
+<ul>
+  <li><code>GET /</code> serves an embedded page; no working-directory assumptions.</li>
+  <li><code>GET /healthz</code> returns <code>{"status":"ok"}</code>.
+    It is process liveness, not a dependency readiness check.</li>
+  <li>Unsupported paths return 404; unsupported methods return 405.</li>
+  <li>JSON lifecycle logs go to stdout. Configuration errors exit nonzero.</li>
+  <li>HTTP timeouts bound slow clients; SIGINT/SIGTERM allow up to ten seconds for shutdown.</li>
+  <li>The <code>-healthcheck</code> flag probes the configured address with a three-second timeout.</li>
+</ul>
+<h2>Deliberate omissions</h2>
+<p>No database, authentication, scheduler, telemetry service, or frontend toolchain
+is preselected. There are no protected routes yet. Before adding sensitive data
+or administrative operations, add authentication, authorization, request limits,
+and appropriate tests. Review the starter Content Security Policy before adding
+scripts, styles, or remote assets.</p>
+<h2>Reference projects</h2>
+<p>The structure follows patterns found in
+<a href="https://github.com/mstrhakr/network-list-sync">network-list-sync</a>,
+<a href="https://github.com/mstrhakr/audplexus">audplexus</a>, and
+<a href="https://github.com/Printmaster-Org/printmaster">PrintMaster</a>:
+single-binary services, focused packages, explicit lifecycle management, and
+multistage builds. No application code or domain dependencies were copied.</p>

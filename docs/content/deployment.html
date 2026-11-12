@@ -1,0 +1,47 @@
++++
+title = 'Deployment and publishing'
+weight = 40
++++
+<h2>Docker Compose</h2>
+<pre><code>cp .env.example .env
+docker compose up --build -d
+docker compose logs -f
+curl http://localhost:8080/healthz
+docker compose down</code></pre>
+<p>Compose reads <code>.env</code> for the host port and log level.
+The multistage image contains a static binary and CA certificates, runs as
+UID/GID 65532, and provides a built-in health check. Compose uses a read-only
+filesystem, drops capabilities, and prevents privilege escalation. No secrets,
+source files, shell, or docs are included in the runtime image.</p>
+<p>The default host binding is <code>127.0.0.1</code>. For remote use, put a
+TLS reverse proxy in front of it. If the proxy is another container, connect it
+to the same Docker network and use <code>app:8080</code> instead of loopback.
+Do not expose future administrative routes without authentication.</p>
+<h2>Container registry (off by default)</h2>
+<ol>
+  <li>Set the repository Actions variable <code>PUBLISH_CONTAINER</code> to <code>true</code>.</li>
+  <li>Run the “Publish container (opt-in)” workflow manually on the default branch.</li>
+  <li>After tests pass, it publishes amd64 and arm64 images to
+    <code>ghcr.io/owner/repository:sha-FULL_COMMIT_SHA</code>, with lowercase names.</li>
+</ol>
+<p>It uses the built-in GitHub token; no personal access token is required.
+New GHCR packages are private by default, but existing packages retain their
+visibility. Verify package access before enabling this workflow. There is no
+automatic publication on pushes or tags.</p>
+<h2>GitHub Pages (off by default)</h2>
+<p><strong>A private repository does not guarantee a private Pages site.</strong>
+Pages availability and private-site access controls depend on your GitHub plan.
+Treat publishing as public disclosure unless you have explicitly verified access controls.
+No repository visibility or Pages setting is changed automatically.</p>
+<ol>
+  <li>Review the generated content and remove anything that must remain private.</li>
+  <li>When ready, select GitHub Actions as the Pages source in repository settings.</li>
+  <li>Set the Actions variable <code>PUBLISH_DOCS</code> to <code>true</code>.</li>
+  <li>Run “Publish documentation (opt-in)” on the default branch and explicitly
+    confirm publication. Optionally require approval on the <code>github-pages</code> environment.</li>
+</ol>
+<p>The workflow derives the base URL from GitHub Pages, so project paths and custom
+domains do not require hardcoded repository names. Preview locally with
+<code>make docs-serve</code> while publishing remains disabled. Changing either
+opt-in variable back to false prevents future runs, but does not delete already
+published sites, packages, or artifacts.</p>
