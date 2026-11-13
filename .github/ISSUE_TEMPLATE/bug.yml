@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible problem
+body:
+  - type: markdown
+    attributes:
+      value: 'For vulnerabilities use Security > Report a vulnerability, not a public issue. Remove secrets from logs.'
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version, OS, architecture, and deployment type
+    validations:
+      required: true

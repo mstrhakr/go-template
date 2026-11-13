@@ -1,0 +1,213 @@
+name: Read-only validation
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      go:
+        type: boolean
+        default: true
+      js:
+        type: boolean
+        default: true
+      browser:
+        type: boolean
+        default: true
+      docs:
+        type: boolean
+        default: true
+      contracts:
+        type: boolean
+        default: true
+      container:
+        type: boolean
+        default: true
+      security:
+        type: boolean
+        default: true
+      workflows:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  go:
+    if: inputs.go
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: make check-go
+
+  js:
+    if: inputs.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: make test-js check-assets
+
+  browser:
+    if: inputs.browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm exec -- playwright install --with-deps chromium firefox webkit
+      - run: make test-e2e
+      - if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: browser-failures
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  docs:
+    if: inputs.docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-hugo
+      - env:
+          INCLUDE_CONTRACTS: ${{ vars.PUBLISH_CONTRACTS }}
+        run: |
+          config=hugo.toml
+          if [[ "$INCLUDE_CONTRACTS" = true ]]; then config=hugo.toml,hugo.contracts.toml; fi
+          hugo --source docs --config "$config" --minify --panicOnWarning --baseURL https://example.invalid/go-template/
+
+  contracts:
+    if: inputs.contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: make check-contracts
+
+  container:
+    if: inputs.container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+        with:
+          version: v0.39.0
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          push: false
+          load: true
+          tags: go-template:ci
+          platforms: linux/amd64
+      - name: Container smoke test
+        run: |
+          docker run -d --name smoke --read-only --cap-drop ALL --security-opt no-new-privileges go-template:ci
+          trap 'docker logs smoke; docker rm -f smoke' EXIT
+          node scripts/container-smoke.mjs
+      - run: node scripts/scan-image.mjs go-template:ci
+
+  security:
+    if: inputs.security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=low
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  workflows:
+    if: inputs.workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: make check-workflows
+
+  gate:
+    if: always()
+    needs: [go, js, browser, docs, contracts, container, security, workflows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const jobs=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(jobs)) if(!["success","skipped"].includes(job.result)) throw new Error(`${name}: ${job.result}`)'

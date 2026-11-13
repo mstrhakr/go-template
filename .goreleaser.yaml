@@ -1,0 +1,30 @@
+version: 2
+project_name: go-template
+builds:
+  - id: server
+    main: ./cmd/server
+    binary: server
+    env: [CGO_ENABLED=0]
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: linux
+        goarch: arm64
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+archives:
+  - formats: [tar.gz]
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md, internal/web/static/LICENSE.htmx]
+checksum:
+  name_template: checksums.txt
+changelog:
+  disable: true
+release:
+  prerelease: auto

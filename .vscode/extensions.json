@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "golang.go",
+    "ms-playwright.playwright",
+    "vivaxy.vscode-conventional-commits"
+  ]
+}

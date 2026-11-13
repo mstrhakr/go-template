@@ -28,9 +28,10 @@ loopback address for local-only development. Compose exposes only loopback by de
   <li>Create a repository from this template and choose its visibility deliberately.</li>
   <li>Change the module path with <code>go mod edit -module=github.com/OWNER/PROJECT</code>,
     then update imports in <code>cmd/server/</code>.</li>
-  <li>Update the README, page titles, embedded landing page, and documentation title.</li>
+  <li>Update the README, templates, docs titles and release project names.</li>
   <li>Review the license and retain notices for any reused code.</li>
-  <li>Run <code>make check</code>, <code>make docs</code>, and <code>docker compose up --build</code>.</li>
+  <li>Install Node 24, Make and a C compiler; run <code>make setup</code>, then
+    <code>make check</code>, <code>make docs</code>, and <code>docker compose up --build</code>.</li>
   <li>Review repository Actions, branch protection, Dependabot, package visibility, and Pages settings.
     Publishing remains disabled until explicitly enabled.</li>
 </ol>

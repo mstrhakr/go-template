@@ -1,0 +1,102 @@
+name: Releases (opt-in)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Explicit prerelease channel
+        type: choice
+        options: [beta, rc]
+        required: true
+      tag:
+        description: Exact tag, e.g. v0.2.0-beta.1 or v0.2.0-rc.1
+        type: string
+        required: true
+      revision:
+        description: Exact full 40-character main-history commit SHA
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: release-coordination
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: github.event_name == 'push' && vars.RELEASES_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag_name }}
+      created: ${{ steps.release.outputs.release_created }}
+      pr: ${{ steps.release.outputs.pr }}
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        id: release
+
+  validate-bot-pr:
+    needs: release-please
+    if: needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PR: ${{ needs.release-please.outputs.pr }}
+        run: |
+          branch="$(node -e 'const pr=JSON.parse(process.env.RELEASE_PR); if(pr.baseBranchName!=="main"||!/^release-please--branches--main/.test(pr.headBranchName)) throw new Error("Unexpected release PR"); console.log(pr.headBranchName)')"
+          gh workflow run ci.yml --ref "$branch"
+
+  prepare:
+    needs: release-please
+    if: always() && vars.RELEASES_ENABLED == 'true' && vars.RELEASE_APPROVAL_CONFIGURED == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.created == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.input.outputs.revision }}
+      tag: ${{ steps.input.outputs.tag }}
+      channel: ${{ steps.input.outputs.channel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - id: input
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'normal' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || needs.release-please.outputs.tag }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.revision || github.sha }}
+        run: node scripts/prepare-release.mjs
+
+  publish:
+    needs: prepare
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      sha: ${{ needs.prepare.outputs.sha }}
+      tag: ${{ needs.prepare.outputs.tag }}
+      channel: ${{ needs.prepare.outputs.channel }}

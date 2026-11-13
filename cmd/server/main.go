@@ -17,9 +17,20 @@ import (
 	"github.com/mstrhakr/go-template/internal/web"
 )
 
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	healthcheck := flag.Bool("healthcheck", false, "check the running service and exit")
+	showVersion := flag.Bool("version", false, "print build version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Printf("%s commit=%s built=%s\n", version, commit, date)
+		return
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("configuration failed", "error", err)

@@ -1,0 +1,28 @@
+:root {
+  color-scheme: light;
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  color: #202c29;
+  background: #f4f6f5;
+  letter-spacing: 0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; border-top: 6px solid #19705d; }
+main { max-width: 46rem; margin: 4rem auto; padding: 0 1.5rem; }
+h1 { margin: 0; font-size: 2rem; }
+header p { color: #53635c; }
+form { margin-top: 2.5rem; }
+label { display: block; margin-bottom: .5rem; font-weight: bold; }
+.fields { display: flex; gap: .75rem; }
+input, button { min-height: 44px; border: 1px solid #84968d; border-radius: 4px; font: inherit; }
+input { min-width: 0; flex: 1; padding: .65rem; background: white; }
+button { padding: .65rem 1.2rem; background: #19705d; color: white; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+:focus-visible { outline: 3px solid #bc4e23; outline-offset: 3px; }
+#greeting { margin: 1.5rem 0 2.5rem; overflow-wrap: anywhere; }
+#request-error { color: #9c2828; }
+a { color: #19634f; text-underline-offset: .2em; }
+footer { border-top: 1px solid #cad4ce; padding-top: 1rem; }
+@media (max-width: 400px) {
+  main { margin-top: 2rem; }
+  .fields { flex-direction: column; }
+}

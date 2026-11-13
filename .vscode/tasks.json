@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Test: all", "type": "shell", "command": "make test", "group": { "kind": "test", "isDefault": true }, "problemMatcher": [] },
+    { "label": "Check: all", "type": "shell", "command": "make check", "problemMatcher": [] },
+    { "label": "Test: Go", "type": "shell", "command": "make test-go", "problemMatcher": [] },
+    { "label": "Test: JS/API", "type": "shell", "command": "make test-js", "problemMatcher": [] },
+    { "label": "Test: browsers", "type": "shell", "command": "make test-e2e", "problemMatcher": [] }
+  ]
+}
