@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { repositorySettings } from './github-settings.mjs';
+import { allowedActions } from './github-actions.mjs';
 
 const args = process.argv.slice(2);
 const repo = args.includes('--repo') ? args[args.indexOf('--repo') + 1] : execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], { encoding: 'utf8' }).trim();
@@ -27,15 +28,7 @@ for (const endpoint of ['vulnerability-alerts', 'automated-security-fixes', 'pri
 request(`${api}/actions/permissions`, { enabled: true, allowed_actions: 'selected', sha_pinning_required: true });
 request(`${api}/actions/permissions/selected-actions`, {
   github_owned_allowed: false, verified_allowed: false,
-  patterns_allowed: [
-    'actions/checkout@*', 'actions/setup-go@*', 'actions/setup-node@*',
-    'actions/upload-artifact@*', 'actions/download-artifact@*',
-    'actions/attest-build-provenance@*', 'actions/attest@*',
-    'actions/configure-pages@*', 'actions/upload-pages-artifact@*', 'actions/deploy-pages@*',
-    'docker/setup-buildx-action@*', 'docker/build-push-action@*', 'docker/login-action@*',
-    'github/codeql-action/init@*', 'github/codeql-action/analyze@*',
-    'googleapis/release-please-action@*',
-  ],
+  patterns_allowed: allowedActions,
 });
 request(`${api}/actions/permissions/workflow`, { default_workflow_permissions: 'read', can_approve_pull_request_reviews: true });
 
