@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/mstrhakr/go-template/compare/v0.1.0...v0.1.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* allow pinned nested provenance action ([#6](https://github.com/mstrhakr/go-template/issues/6)) ([7f67748](https://github.com/mstrhakr/go-template/commit/7f67748b462baf6229dc9c15de0508825d9bfe5d))
+
 ## 0.1.0 (2026-11-13)
 
 
