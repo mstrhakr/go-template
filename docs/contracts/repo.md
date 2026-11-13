@@ -27,7 +27,8 @@ every repository created from this template, after its own setup verification.
 Enable Issues and private vulnerability reporting; disable Wiki and Discussions.
 Use public-repository security features where available. Creating a repo from
 this template does not inherit live settings, rulesets, environments, or opt-ins.
-Never change another repository's visibility implicitly.
+Setup preserves the repository's existing template status. Never change another
+repository's visibility implicitly.
 
 ### REPO-002: Development Flow
 

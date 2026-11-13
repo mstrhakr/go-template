@@ -19,6 +19,7 @@ export function workflowErrors(workflow, filename = '') {
     if (['ci.yml', 'validate.yml'].includes(filename) && Object.values(job.permissions ?? {}).includes('write')) errors.push(`validation job has write permission: ${name}`);
     for (const step of job.steps ?? []) {
       checkUse(step.uses);
+      if ((step.with?.['predicate-type'] || step.with?.predicate || step.with?.['predicate-path']) && !step.uses?.startsWith('actions/attest@')) errors.push(`custom predicate requires generic actions/attest: ${name}`);
       if (step.uses?.startsWith('actions/checkout@') && step.with?.['persist-credentials'] !== false) errors.push(`checkout persists credentials: ${name}`);
       if (/\$\{\{[^}]*(github\.event\.|inputs\.)/.test(step.run ?? '')) errors.push(`untrusted expression interpolated into shell: ${name}`);
       if (/npm ci\b/.test(step.run ?? '') && !step.run.includes('--ignore-scripts')) errors.push(`npm lifecycle scripts enabled: ${name}`);

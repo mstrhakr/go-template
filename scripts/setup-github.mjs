@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { repositorySettings } from './github-settings.mjs';
 
 const args = process.argv.slice(2);
 const repo = args.includes('--repo') ? args[args.indexOf('--repo') + 1] : execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], { encoding: 'utf8' }).trim();
@@ -21,13 +22,7 @@ if (!args.includes('--apply')) {
 }
 
 const viewer = get('user');
-request(api, {
-  is_template: true, has_issues: true, has_wiki: false, has_discussions: false,
-  allow_merge_commit: false, allow_rebase_merge: false, allow_squash_merge: true,
-  squash_merge_commit_title: 'PR_TITLE', squash_merge_commit_message: 'PR_BODY',
-  delete_branch_on_merge: true, allow_auto_merge: false,
-  security_and_analysis: { secret_scanning: { status: 'enabled' }, secret_scanning_push_protection: { status: 'enabled' } },
-}, 'PATCH');
+request(api, repositorySettings, 'PATCH');
 for (const endpoint of ['vulnerability-alerts', 'automated-security-fixes', 'private-vulnerability-reporting']) request(`${api}/${endpoint}`);
 request(`${api}/actions/permissions`, { enabled: true, allowed_actions: 'selected', sha_pinning_required: true });
 request(`${api}/actions/permissions/selected-actions`, {

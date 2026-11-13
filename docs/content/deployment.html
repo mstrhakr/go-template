@@ -43,6 +43,9 @@ security reporting, secret scanning/push protection, Dependabot alerts/fixes,
 squash-only PRs, the required <code>CI gate</code>, immutable version tags,
 read-only Actions defaults and SHA-pinned allowlisted Actions. It disables Wiki,
 Discussions, dependency auto-merge and routine ruleset bypass.</p>
+<p>Setup preserves the repository's existing template status; it does not mark
+new projects as templates. Set that GitHub setting separately if you intend to
+create another reusable template.</p>
 <p>The release environment requires the applying maintainer's approval and
 protected-branch deployment. Self-review remains allowed for a solo maintainer;
 this is an intentional approval pause, not two-person security. GitHub combines

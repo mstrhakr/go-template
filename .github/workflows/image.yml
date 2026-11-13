@@ -162,7 +162,7 @@ jobs:
           subject-name: ${{ needs.publish.outputs.image }}
           subject-digest: ${{ needs.publish.outputs.digest }}
           push-to-registry: true
-      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+      - uses: actions/attest@daf44fb950173508f38bd2406030372c1d1162b1
         with:
           subject-name: ${{ needs.publish.outputs.image }}
           subject-digest: ${{ needs.publish.outputs.digest }}

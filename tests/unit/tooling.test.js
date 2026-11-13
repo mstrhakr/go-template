@@ -4,6 +4,7 @@ import { classify, validTitle, gatePassed } from '../../scripts/ci.mjs';
 import { releaseInput, assertNewRelease } from '../../scripts/release.mjs';
 import { contractErrors } from '../../scripts/contracts.mjs';
 import { workflowErrors } from '../../scripts/workflows.mjs';
+import { repositorySettings } from '../../scripts/github-settings.mjs';
 
 test('contract-only changes skip app and browser jobs', () => {
   const result = classify(['docs/contracts/repo.md']);
@@ -81,4 +82,16 @@ test('workflow policy rejects dangerous scopes, mutable actions, and shell inter
     { uses: `actions/checkout@${'a'.repeat(40)}`, with: { 'persist-credentials': false } },
     { run: 'npm ci --ignore-scripts' },
   ] } } }, 'validate.yml'), []);
+});
+
+test('repository setup preserves existing template status', () => {
+  assert.equal(Object.hasOwn(repositorySettings, 'is_template'), false);
+  assert.equal(repositorySettings.has_issues, true);
+});
+
+test('custom attestations require the generic attest action', () => {
+  const step = { uses: `actions/attest-build-provenance@${'a'.repeat(40)}`, with: { 'predicate-type': 'https://example.test/predicate', predicate: '{}' } };
+  assert.ok(workflowErrors({ jobs: { attest: { steps: [step] } } }).some(error => error.includes('custom predicate requires')));
+  step.uses = `actions/attest@${'a'.repeat(40)}`;
+  assert.deepEqual(workflowErrors({ jobs: { attest: { steps: [step] } } }), []);
 });
