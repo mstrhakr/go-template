@@ -97,7 +97,9 @@ together under `docs/`, with no third-party theme.
 
 - CI runs change-scoped checks with a stable required `CI gate`; PR validation
   is read-only and secret-free. Contract-only changes skip app jobs.
-- Dependabot covers Go, npm, Docker, and GitHub Actions weekly; no auto-merges.
+- Dependabot groups minor/patch updates per Go, npm, Docker, or Actions ecosystem;
+  majors get individual PRs. Version checks are weekly; security updates are
+  separate. Some tool pins and vendored htmx assets need manual maintenance.
 - Actions/base images/tools are pinned; npm installs skip lifecycle scripts.
 - **Publishing is opt-in.** After setup, `PUBLISH_CONTAINER=true` enables dev
   images from relevant passing main CI. Beta/RC are explicit actions; normal

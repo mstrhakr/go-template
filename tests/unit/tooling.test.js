@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { parse } from 'yaml';
 import { classify, validTitle, gatePassed } from '../../scripts/ci.mjs';
 import { releaseInput, assertNewRelease } from '../../scripts/release.mjs';
 import { contractErrors } from '../../scripts/contracts.mjs';
@@ -94,4 +96,19 @@ test('custom attestations require the generic attest action', () => {
   assert.ok(workflowErrors({ jobs: { attest: { steps: [step] } } }).some(error => error.includes('custom predicate requires')));
   step.uses = `actions/attest@${'a'.repeat(40)}`;
   assert.deepEqual(workflowErrors({ jobs: { attest: { steps: [step] } } }), []);
+});
+
+test('Dependabot groups minor and patch version and security updates per ecosystem, not majors', async () => {
+  const config = parse(await readFile(new URL('../../.github/dependabot.yml', import.meta.url), 'utf8'));
+  assert.deepEqual(config.updates.map(update => update['package-ecosystem']).sort(), ['docker', 'github-actions', 'gomod', 'npm']);
+  for (const update of config.updates) {
+    assert.equal(update.schedule.interval, 'weekly');
+    const groups = Object.values(update.groups);
+    assert.equal(groups.length, 2);
+    assert.deepEqual(groups.map(group => group['applies-to'] ?? 'version-updates').sort(), ['security-updates', 'version-updates']);
+    for (const group of groups) {
+      assert.deepEqual(group.patterns, ['*']);
+      assert.deepEqual(group['update-types'], ['minor', 'patch']);
+    }
+  }
 });
