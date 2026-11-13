@@ -55,3 +55,24 @@ authorized workflow or upstream dependency cannot be compromised.
 Template-created-repository setup has not been exercised on a second repository.
 Release recovery/rollback and future persisted-data migrations have not been
 tested. This starter has no database, authenticated operations or desktop UI.
+
+## v0.1.0 Release Verification
+
+Executed 2026-11-13 for release commit `b735e0c06ef9b003bac5eaebf8b935b938d72546`.
+Release Please proposed v0.1.0; its release PR passed all 14 required hosted
+checks across Linux, Windows, macOS ARM64/x64, browser, docs, container and
+security jobs. The full normal-release workflow repeated those checks and
+completed GoReleaser packaging, provenance, source-revision receipts, and the
+maintainer-approved release-environment publication. The release is published,
+not prerelease, at `v0.1.0`. Container publication remained disabled.
+
+Downloaded all four release archives and verified `checksums.txt`. GitHub CLI
+attestation verification succeeded for build provenance and the custom
+source-revision receipt on every archive, enforcing the expected repository and
+publication workflow. The receipt identifies release commit
+`b735e0c06ef9b003bac5eaebf8b935b938d72546`. This proves artifact origin under
+GitHub's Actions/Sigstore trust chain; it does not prove the source or workflow
+is free from malicious behavior. The template's general setup helper still
+needed a follow-up allowlist addition for the provenance action's nested
+predicate pin; that correction is proposed separately and does not change the
+already published v0.1.0 artifacts.
