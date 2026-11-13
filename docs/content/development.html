@@ -35,8 +35,12 @@ package, run <code>go test -race ./internal/web</code>.</p>
 <p>The service uses only the Go standard library, so there is no <code>go.sum</code>
 yet. Use <code>go get module@version</code> and <code>go mod tidy</code> when adding
 dependencies, and commit both module files. Docker copies both automatically.</p>
-<p>Dependabot checks Go modules, npm, SHA-pinned GitHub Actions, and Docker images weekly.
-Review updates rather than automatically merging them. Go starts at 1.27.4 and
+<p>Dependabot checks Go modules/toolchain, npm, GitHub Actions references in
+workflows, and Dockerfile base images. Weekly version updates group minor and
+patch updates by ecosystem; majors get individual PRs. Security updates use
+separate minor/patch groups and individual majors; their timing is independent
+of the weekly version-update schedule. Groups do not cross ecosystems. Review
+updates rather than automatically merging them. Go starts at 1.27.4 and
 Hugo at 0.169.0, the latest stable releases checked for this first pass.</p>
 <p>When updating Go, align <code>go.mod</code> and the Dockerfile tag/digest.
 When updating Hugo, update the version and official release SHA-256 in
@@ -46,12 +50,18 @@ checking its checksum before running it.</p>
 <p>htmx is pinned in package-lock.json and committed under internal/web/static
 with its license and SHA-256 metadata. After an intentional package update, run
 <code>npm run assets</code>, review the generated changes, then run
-<code>make check-assets</code>. Builds do not download browser code from a CDN.
+<code>make check-assets</code>. A Dependabot htmx PR updates npm metadata, not
+these committed assets: CI will fail until a maintainer updates the assets in
+the PR. Never execute PR code in a privileged workflow to do that automatically.
+Builds do not download browser code from a CDN.
 Node is not required to run an already-built executable or container.</p>
-<p>GoReleaser, govulncheck, actionlint, Buildx and the scanner image have explicit
-pins too. Dependabot does not update every executable version/checksum embedded
-in scripts or composite Actions; review those manually. Direct Action pins are
-not a blanket guarantee about all upstream downloads or transitive dependencies.</p>
+<p>Dependabot does not monitor every version embedded in arbitrary shell or JS:
+GoReleaser and Hugo release URLs/checksums, govulncheck and actionlint invocations,
+Buildx versions, and the Trivy image tag/digest in the scanner script need manual
+version checks and reviewed updates. Node 24, Go versions in prose and other
+duplicate pins also need coordination; a Docker or go.mod update does not rewrite
+them all. Check upstream releases and independently verify downloaded checksums.
+Direct Action pins are not a guarantee about transitive Actions or downloads.</p>
 <h2>Documentation</h2>
 <p>Content lives in <code>docs/content/</code>. Existing pages use HTML with TOML
 front matter; Hugo also supports Markdown pages. Add a title and weight to include

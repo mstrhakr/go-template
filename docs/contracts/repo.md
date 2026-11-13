@@ -76,7 +76,10 @@ Grant writes per job; OIDC signing privileges belong only to attestation jobs.
 
 ### REPO-007: Dependencies And Findings
 
-Weekly Dependabot covers Go, npm, Actions and Docker. Use locked installs with
+Weekly Dependabot covers Go, npm, Actions and Docker. Group minor/patch updates
+per ecosystem, with separate version/security groups; major updates remain
+individual PRs. Security updates do not wait for the weekly version schedule.
+Review tool pins outside supported manifests manually. Use locked installs with
 npm lifecycle scripts disabled. Verify bundled htmx matches its locked package.
 Run relevant Go/npm/container scans and scheduled checks; scanners failing to run
 do not establish a clean result. Applicable vulnerabilities block delivery.
