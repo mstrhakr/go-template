@@ -71,7 +71,7 @@ jobs:
           node scripts/container-smoke.mjs
           node scripts/scan-image.mjs release-candidate:build
           docker save -o "$RUNNER_TEMP/image.tar" release-candidate:build
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: image-${{ inputs.tag }}
           path: ${{ runner.temp }}/image.tar
