@@ -86,7 +86,7 @@ jobs:
           name: release-binaries
           path: dist
       - run: cd dist && sha256sum --strict --check checksums.txt
-      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-checksums: dist/checksums.txt
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
